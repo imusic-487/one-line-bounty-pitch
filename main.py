@@ -23,11 +23,14 @@ OUTPUT_FILE = OUTPUT_DIR / "entry.txt"
 
 def main() -> None:
     source = LINE_FILE.read_bytes()
-    text = source.decode("utf-8")
+    try:
+        text = source.decode("utf-8", errors="strict")
+    except UnicodeDecodeError as exc:
+        raise RuntimeError(f"line.txt is not valid UTF-8: {exc}") from exc
 
     if not 1 <= len(text) <= 240:
         raise RuntimeError(
-            f"entry must be 1-240 characters, got {len(text)}"
+            f"entry is {len(text)} characters, allowed 1-240"
         )
     if not text.strip():
         raise RuntimeError("entry must not be only white space")
@@ -42,7 +45,14 @@ def main() -> None:
             f"source is {len(source)} bytes"
         )
     if written != source:
-        raise RuntimeError("copy bytes differ from line.txt")
+        offset = next(
+            i for i, (a, b) in enumerate(zip(written, source)) if a != b
+        )
+        raise RuntimeError(
+            f"copy bytes differ from line.txt: first difference at "
+            f"byte {offset} (wrote 0x{written[offset]:02x}, "
+            f"source is 0x{source[offset]:02x})"
+        )
 
     print(f"wrote {OUTPUT_FILE} ({len(source)} bytes, {len(text)} characters)")
 
